@@ -4,6 +4,9 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
 
 public class LibraryContext : DbContext
 {
@@ -59,4 +62,81 @@ public class Authentication
     {
         return BCrypt.Net.BCrypt.Verify(password, hash);
     }
+
+    public static User RegisterUser(string name, string email, string password, string role = "user")
+    {
+        using (var db = new LibraryContext())
+        {
+            if (db.Users.Any(u => u.Email == email))
+                throw new Exception("User with this email already exists.");
+
+            var user = new User
+            {
+                Name = name,
+                Email = email,
+                PasswordHash = HashPassword(password),
+                Role = role
+            };
+
+            db.Users.Add(user);
+            db.SaveChanges();
+            return user;
+        }
+    }
+
+    public static User LoginUser(string email, string password)
+    {
+        using (var db = new LibraryContext())
+        {
+            var user = db.Users.FirstOrDefault(u => u.Email == email);
+            if (user == null || !VerifyPassword(password, user.PasswordHash))
+                throw new Exception("Invalid email or password.");
+            
+            return user;
+        }
+    }
 }
+
+public partial class LoginWindow : Window
+{
+    public LoginWindow()
+    {
+        InitializeComponent();
+    }
+
+    private void LoginButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var user = Authentication.LoginUser(EmailTextBox.Text, PasswordBox.Password);
+            MessageBox.Show("Login successful! Welcome " + user.Name);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message);
+        }
+    }
+}
+
+public partial class RegisterWindow : Window
+{
+    public RegisterWindow()
+    {
+        InitializeComponent();
+    }
+
+    private void RegisterButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Authentication.RegisterUser(NameTextBox.Text, EmailTextBox.Text, PasswordBox.Password);
+            MessageBox.Show("Registration successful!");
+            this.Close();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message);
+        }
+    }
+}
+
